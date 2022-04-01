@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: BEATSMTH application
+
+# Parameters
+Parameters:
+  LambdaDeploymentS3Bucket:
+    Description: S3 Bucket that contains a ZIP archive of the Lambda files.
+    Type: String
+    Default: beatsmth-deploy-files
+    ConstraintDescription: Must be a public S3 bucket. Doesn't have to be your own.
+  LambdaDeploymentS3BucketKey:
+    Description: Key (file) in the S3 bucket that points to the ZIP file containing the Lambda archives.
+    Type: String
+    Default: Lambdas.zip
+    ConstraintDescription: Must be a public S3 bucket key. Doesn't have to be your own.
+
+Resources:
+  # Roles (Requires Freetier)
+  # LambdaRole:
+  #   Type: AWS::IAM::User
+  #   Properties:
+  #     ManagedPolicyArns:
+  #       - arn:aws:iam::aws:policy/service-role/AmazonS3ObjectLambdaExecutionRolePolicy
+
+  # Training Data Download
+  BeatSaverStorage:
+    Type: AWS::S3::Bucket
+  DownloadBeatSaverZipsLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Downloads Beat Saver files to an S3 bucket.
+      Runtime: python3.9
+      # Role: !Ref LambdaRole # Requires Freetier
+      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
+      Handler: DownloadLambda.lambda_handler
+      Environment:
+        Variables:
+          BeatSaverDownloadZipsBucketName: !Ref BeatSaverStorage
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref LambdaDeploymentS3Bucket
+        S3Key: !Ref LambdaDeploymentS3BucketKey
+      TracingConfig:
+        Mode: Active
+
+  # Lambda Access
+  LambdaApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: BEATSMTH Lambda APIs
+      Description: API Gateway for interacting with the Lambdas.
+
+  ConfigLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    DependsOn:
+      - DownloadBeatSaverZipsLambda
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt DownloadBeatSaverZipsLambda.Arn
+      Principal: apigateway.amazonaws.com
+
+  DownloadBeatSaverZipsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref LambdaApiGateway
+      ParentId: !GetAtt LambdaApiGateway.RootResourceId
+      PathPart: download-maps
+  DownloadBeatSaverZipsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ResourceId: !Ref DownloadBeatSaverZipsResource
+      RestApiId: !Ref LambdaApiGateway
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        ConnectionType: INTERNET
+        IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_MATCH
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations
+          - lambdaArn: !GetAtt DownloadBeatSaverZipsLambda.Arn
+  LambdaApiGatewayDeployment:
+    DependsOn:
+      - DownloadBeatSaverZipsMethod
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref LambdaApiGateway
+      StageName: Deployment
