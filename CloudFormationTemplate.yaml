@@ -42,6 +42,8 @@ Resources:
         S3Key: !Ref LambdaDeploymentS3BucketKey
       TracingConfig:
         Mode: Active
+      Architectures:
+        - arm64
 
   # Lambda Access
   LambdaApiGateway:
