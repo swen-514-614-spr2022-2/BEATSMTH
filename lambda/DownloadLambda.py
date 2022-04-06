@@ -3,7 +3,9 @@ import json
 import os
 import urllib.request
 from botocore.errorfactory import ClientError
+from io import BytesIO
 from threading import Thread
+from zipfile import ZipFile
 
 MAX_DOWNLOADS_BEFORE_SPLIT = 3
 
@@ -63,12 +65,12 @@ def lambda_handler(event, context):
     else:
         # Download the maps.
         for mapId in mapIds:
-            key = "beat-saver-zips/" + mapId + ".zip"
+            baseKey = "beat-saver-maps/" + mapId
             s3Client = boto3.client("s3")
 
             try:
-                # Read the file and add it as existing if it does not error.
-                s3Client.head_object(Bucket=bucketName, Key=key)
+                # Read the info.dat file and add it as existing if it does not error.
+                s3Client.head_object(Bucket=bucketName, Key=baseKey + "/info.dat")
                 existingMaps.append(mapId)
             except ClientError:
                 # Download the map if it does not exist.
@@ -77,12 +79,16 @@ def lambda_handler(event, context):
                     mapData = json.loads(urllib.request.urlopen("https://api.beatsaver.com/maps/id/" + mapId).read().decode("utf8"))
                     mapFile = urllib.request.urlopen(mapData["versions"][0]["downloadURL"]).read()
 
-                    # Download the map.
-                    s3Client.put_object(
-                        Body = mapFile,
-                        Bucket = bucketName,
-                        Key = key,
-                    )
+                    # Put the map files in S3.
+                    # The files that aren't map data (covers and songs) are not saved.
+                    zipFile = ZipFile(BytesIO(mapFile), "r")
+                    for fileName in zipFile.namelist():
+                        if fileName.endswith(".dat"):
+                            s3Client.put_object(
+                                Body = zipFile.open(fileName),
+                                Bucket = bucketName,
+                                Key = baseKey + "/" + fileName,
+                            )
                     downloadedMaps.append(mapId)
                 except:
                     # Add the map as failed.
