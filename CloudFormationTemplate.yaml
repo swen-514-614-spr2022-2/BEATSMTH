@@ -44,6 +44,25 @@ Resources:
         Mode: Active
       Architectures:
         - arm64
+  DownloadBeatSaverPagesLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Requests downloading pages of Beat Saver maps.
+      Runtime: python3.9
+      # Role: !Ref LambdaRole # Requires Freetier
+      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
+      Handler: DownloadPagesLambda.lambda_handler
+      Environment:
+        Variables:
+          DownloadBeatSaverZipsLambda: !Ref DownloadBeatSaverZipsLambda
+      Timeout: 600
+      Code:
+        S3Bucket: !Ref LambdaDeploymentS3Bucket
+        S3Key: !Ref LambdaDeploymentS3BucketKey
+      TracingConfig:
+        Mode: Active
+      Architectures:
+        - arm64
 
   # Lambda Access
   LambdaApiGateway:
@@ -90,3 +109,11 @@ Resources:
     Properties:
       RestApiId: !Ref LambdaApiGateway
       StageName: Deployment
+
+  # First Time Setup
+  DownloadInitialPages:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: DownloadBeatSaverPagesLambda
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt DownloadBeatSaverPagesLambda.Arn

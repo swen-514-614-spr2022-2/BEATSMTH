@@ -7,9 +7,35 @@ import urllib.request
 PAGES_TO_DOWNLOAD = 25
 
 
+def sendCloudFormationSuccess(event, context):
+    """Sends a response to CloudFormation that the given operation completed.
+    """
+
+    try:
+        request = urllib.request.Request(event["ResponseURL"], data=json.dumps({
+            "Status": "SUCCESS",
+            "PhysicalResourceId": context.log_stream_name,
+            "StackId": event["StackId"],
+            "RequestId": event["RequestId"],
+            "LogicalResourceId": event["LogicalResourceId"],
+        }).encode(), method="PUT")
+        urllib.request.urlopen(request)
+    except Exception:
+        pass
+
 def lambda_handler(event, context):
     """Handles the Lambda request.
     """
+
+    # Ignore the request if it is from CloudFormation and it isn't a resource create.
+    # This will happen when a resource is being deleted or updated.
+    if "RequestType" in event.keys() and event["RequestType"] != "Create":
+        sendCloudFormationSuccess(event, context)
+        return {
+            "statusCode": 200,
+            "body": "",
+            "isBase64Encoded": False,
+        }
 
     # Create the SSL context.
     # For some reason, SSL errors occur despite the certificate being valid.
@@ -38,4 +64,11 @@ def lambda_handler(event, context):
             "body": json.dumps(mapIds),
         }),
     )
-    return json.loads(downloadResponse["Payload"].read().decode("utf8"))
+    response = json.loads(downloadResponse["Payload"].read().decode("utf8"))
+
+    # Respond to CloudFormation that the event completed.
+    if "ResponseURL" in event.keys():
+        sendCloudFormationSuccess(event, context)
+
+    # Return the map response.
+    return response
