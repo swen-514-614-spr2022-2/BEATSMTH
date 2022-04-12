@@ -7,7 +7,7 @@ from io import BytesIO
 from threading import Thread
 from zipfile import ZipFile
 
-MAX_DOWNLOADS_BEFORE_SPLIT = 3
+MAX_DOWNLOADS_BEFORE_SPLIT = 10
 
 lambdaClient = None
 lambdaFunctionName = os.environ["AWS_LAMBDA_FUNCTION_NAME"]
@@ -43,7 +43,12 @@ def lambda_handler(event, context):
     downloadedMaps = []
     existingMaps = []
     failedMaps = []
-    mapIds = json.loads(event["body"])
+    mapIds = []
+    if "Records" in event.keys():
+        for record in event["Records"]:
+            mapIds.append(record["body"])
+    else:
+        json.loads(event["body"])
 
     if len(mapIds) > MAX_DOWNLOADS_BEFORE_SPLIT:
         # Start the Lambda client.
