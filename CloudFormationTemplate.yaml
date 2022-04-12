@@ -25,6 +25,10 @@ Resources:
   # Training Data Download
   BeatSaverStorage:
     Type: AWS::S3::Bucket
+  BeatSaverMapDownloadQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 600
   DownloadBeatSaverZipsLambda:
     Type: AWS::Lambda::Function
     Properties:
@@ -44,8 +48,16 @@ Resources:
         Mode: Active
       Architectures:
         - arm64
+  DownloadBeatSaverZipsLambdaQueueEvent:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10
+      Enabled: true
+      EventSourceArn: !GetAtt BeatSaverMapDownloadQueue.Arn
+      FunctionName: !GetAtt DownloadBeatSaverZipsLambda.Arn
   DownloadBeatSaverPagesLambda:
     Type: AWS::Lambda::Function
+    DependsOn: BeatSaverMapDownloadQueue
     Properties:
       Description: Requests downloading pages of Beat Saver maps.
       Runtime: python3.9
@@ -54,7 +66,7 @@ Resources:
       Handler: DownloadPagesLambda.lambda_handler
       Environment:
         Variables:
-          DownloadBeatSaverZipsLambda: !Ref DownloadBeatSaverZipsLambda
+          BeatSaverMapDownloadQueue: !Ref BeatSaverMapDownloadQueue
       Timeout: 600
       Code:
         S3Bucket: !Ref LambdaDeploymentS3Bucket

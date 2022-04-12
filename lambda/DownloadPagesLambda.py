@@ -3,8 +3,10 @@ import json
 import os
 import ssl
 import urllib.request
+import uuid
 
 PAGES_TO_DOWNLOAD = 25
+MAX_ENTRIES_FOR_BATCH = 10
 
 
 def sendCloudFormationSuccess(event, context):
@@ -34,7 +36,6 @@ def lambda_handler(event, context):
         return {
             "statusCode": 200,
             "body": "",
-            "isBase64Encoded": False,
         }
 
     # Create the SSL context.
@@ -55,20 +56,23 @@ def lambda_handler(event, context):
         except Exception:
             pass
 
-    # Download the maps.
-    lambdaClient = boto3.client("lambda")
-    downloadResponse = lambdaClient.invoke(
-        FunctionName=os.environ["DownloadBeatSaverZipsLambda"],
-        InvocationType="RequestResponse",
-        Payload=json.dumps({
-            "body": json.dumps(mapIds),
-        }),
-    )
-    response = json.loads(downloadResponse["Payload"].read().decode("utf8"))
+    # Add the maps to the queue to download.
+    downloadEntries = []
+    for mapId in mapIds:
+        downloadEntries.append({
+            "Id": str(uuid.uuid4()),
+            "MessageBody": mapId,
+        })
+    sqsClient = boto3.client("sqs")
+    for i in range(0, len(mapIds), MAX_ENTRIES_FOR_BATCH):
+        sqsClient.send_message_batch(QueueUrl=os.environ["BeatSaverMapDownloadQueue"], Entries=downloadEntries[i:i + MAX_ENTRIES_FOR_BATCH])
 
     # Respond to CloudFormation that the event completed.
     if "ResponseURL" in event.keys():
         sendCloudFormationSuccess(event, context)
 
     # Return the map response.
-    return response
+    return {
+        "statusCode": 200,
+        "body": "Maps added to queue.",
+    }
