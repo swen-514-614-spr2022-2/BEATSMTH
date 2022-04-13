@@ -45,5 +45,5 @@ def lambda_handler(event, context):
   # train() # Pulls in a number of maps to train with, currently not being utilized
   return {
     'statusCode': 200,
-    'body': json.dumps(random_fillings(event))
+    'body': json.dumps(random_fillings(json.loads(event["body"])))
   }
