@@ -108,6 +108,7 @@ Resources:
     Type: "AWS::Lambda::Permission"
     DependsOn:
       - DownloadBeatSaverZipsLambda
+      - SageFakerLambda
     Properties:
       Action: lambda:InvokeFunction
       FunctionName: !GetAtt DownloadBeatSaverZipsLambda.Arn
@@ -135,9 +136,34 @@ Resources:
         Uri: !Sub
           - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations
           - lambdaArn: !GetAtt DownloadBeatSaverZipsLambda.Arn
+    
+  InvokeSageFakerResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref LambdaApiGateway
+      ParentId: !GetAtt LambdaApiGateway.RootResourceId
+      PathPart: sagefaker
+  InvokeSageFakerMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ResourceId: !Ref InvokeSageFakerResource
+      RestApiId: !Ref LambdaApiGateway
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        ConnectionType: INTERNET
+        IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_MATCH
+        TimeoutInMillis: 29000
+        Type: AWS_PROXY
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations
+          - lambdaArn: !GetAtt SageFakerLambda.Arn
+      
   LambdaApiGatewayDeployment:
     DependsOn:
       - DownloadBeatSaverZipsMethod
+      - InvokeSageFakerMethod
     Type: AWS::ApiGateway::Deployment
     Properties:
       RestApiId: !Ref LambdaApiGateway
