@@ -108,10 +108,18 @@ Resources:
     Type: "AWS::Lambda::Permission"
     DependsOn:
       - DownloadBeatSaverZipsLambda
-      - SageFakerLambda
     Properties:
       Action: lambda:InvokeFunction
       FunctionName: !GetAtt DownloadBeatSaverZipsLambda.Arn
+      Principal: apigateway.amazonaws.com
+      
+   ConfigSageFakerLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    DependsOn:
+      - SageFakerLambda
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt SageFakerLambda.Arn
       Principal: apigateway.amazonaws.com
 
   DownloadBeatSaverZipsResource:
