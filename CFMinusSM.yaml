@@ -113,7 +113,7 @@ Resources:
       FunctionName: !GetAtt DownloadBeatSaverZipsLambda.Arn
       Principal: apigateway.amazonaws.com
       
-   ConfigSageFakerLambdaPermission:
+  ConfigSageFakerLambdaPermission:
     Type: "AWS::Lambda::Permission"
     DependsOn:
       - SageFakerLambda

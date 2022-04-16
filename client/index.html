@@ -20,10 +20,22 @@
       .header {
         font-size: 5em;
         font-style: italic;
+        margin: 0 auto;
+      }
+
+      .url-container {
         margin: 0 auto 5vh auto;
+      }
+
+      .header,
+      .url-container {
         padding: 5vh 0;
         text-align: center;
         border-bottom: 1pt solid var(--primary);
+      }
+
+      .api-url {
+        width: 67vw;
       }
 
       .btn-primary,
@@ -40,7 +52,24 @@
         color: var(--light);
         filter: brightness(1.1);
       }
+
+      .beat {
+        padding-right: calc(var(--bs-gutter-x) * .5);
+        padding-left: calc(var(--bs-gutter-x) * .5);
+      }
+
+      .beat-part,
+      .map {
+        margin: 2pt;
+      }
+
+      #add-beat,
+      #add-map {
+        border-radius: 20pt;
+        margin-bottom: 5pt;
+      }
     </style>
+
     <title>BEATSMTH</title>
   </head>
 
@@ -48,25 +77,48 @@
     <div class="container">
       <div class="col">
         <h1 class="header">BEATSMTH</h1>
+
+        <div class="url-container">
+          <h5>Input the BEATSMTH API Base URL</h5>
+          <input 
+            type="url" 
+            class="api-url" 
+            id="api-url" 
+            placeholder="Should look similar to the following: https://fafo1l9ywl.execute-api.us-east-1.amazonaws.com/Deployment"
+          >
+        </div>
+
         <div class="row">
           <div class="col">
-            <h2 class="request-label">Request Maps</h2>
-            <form>
+            <h2 class="request-label">Request Maps for Training</h2>
+            <form id="map-to-train" action="/" method="POST">
               <div class="form-group">
-                <label for="requestEmail">Email Address</label>
-                <input type="email" class="form-control" id="requestEmail" aria-describedby="describeRequestEmail" placeholder="address@example.com">
-                <small id="describeRequestEmail" class="form-text text-muted">Will Recieve Notification</small>
+                <label for="maps">Map ID to add to Training Data</label>
+                <div class="maps" id="maps"><input class="col map" type="number" id="map" name="map" placeholder="1234" min="0" max="1000000"></div>
+                <button type="button" class="btn btn-primary" id="add-map">+</button>
               </div>
               <button type="submit" class="btn btn-primary">Submit</button>
             </form>
           </div>
           <div class="col">
-            <h2 class="create-label">Create Maps</h2>
-            <form>
+            <h2 class="create-label">Generate Map</h2>
+            <form id="map-generate" target="_blank" action="/" method="POST">
               <div class="form-group">
-                <label for="createEmail">Email Address</label>
-                <input type="email" class="form-control" id="createEmail" aria-describedby="describeCreateEmail" placeholder="address@example.com">
-                <small id="describeCreateEmail" class="form-text text-muted">Will Recieve Notification</small>
+                <label for="beats">Beats to Generate Map Around</label>
+                <div class="beats" id="beats">
+                  <div class="beat row">
+                    <input class="col beat-part" type="number" id="_time" name="_time" placeholder="time" min="0" max="1000">
+                    <input class="col beat-part" type="number" id="_type" name="_type" placeholder="type" min="0" max="5">
+                    <input class="col beat-part" type="number" id="_lineLayer" name="_lineLayer" placeholder="lineLayer" min="0" max="2">
+                    <input class="col beat-part" type="number" id="_lineIndex" name="_lineIndex" placeholder="lineIndex" min="0" max="3">
+                    <input class="col beat-part" type="number" id="_cutDirection" name="_cutDirection" placeholder="cutDirection" min="0" max="8">
+                  </div>
+                </div>
+                <button type="button" class="btn btn-primary" id="add-beat">+</button>
+                <br />
+                <label for="email">Email Address</label>
+                <input type="email" class="form-control" id="email" name="email" aria-describedby="email" placeholder="address@example.com">
+                <small id="describeEmail" class="form-text text-muted">Will Recieve Notification</small>
               </div>
               <button type="submit" class="btn btn-primary">Submit</button>
             </form>
@@ -76,5 +128,59 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+    <script>
+      const addBeat = (event) => {
+        event.preventDefault();
+        const beats = document.getElementById("beats");
+        const rowNum = beats.childElementCount;
+        const beatRow = document.createElement('div');
+        beatRow.setAttribute("class", "beat row");
+        const inputs = ["_time", "_type", "_lineLayer", "_lineIndex", "_cutDirection"];
+        inputs.forEach((key) => {
+          const child = document.createElement('input');
+          child.setAttribute("class", "col beat-part");
+          child.setAttribute("type", "number");
+          child.setAttribute("id", key + rowNum);
+          child.setAttribute("name", key + rowNum);
+          child.setAttribute("placeholder", key.substring(1));
+          child.setAttribute("min", "0");
+          child.setAttribute("max", key === "_time" ? "1000" : (key === "_type" ? "5" : (key === "_lineLayer" ? "2" : (key === "_lineIndex" ? "3" : "8"))));
+          beatRow.appendChild(child);
+        });
+        beats.appendChild(beatRow);
+      };
+
+      const addMap = (event) => {
+        event.preventDefault();
+        const maps = document.getElementById("maps");
+        const mapNum = maps.childElementCount;
+        const map = document.createElement('input');
+        map.setAttribute("class", "col map");
+        map.setAttribute("type", "number");
+        map.setAttribute("id", "map" + mapNum);
+        map.setAttribute("name", "map" + mapNum);
+        map.setAttribute("placeholder", "1234");
+        map.setAttribute("min", "0");
+        map.setAttribute("max", "1000000");
+        maps.appendChild(map);
+      };
+
+      const submitOverride = (source, path) => {
+        return (event) => {
+          event.preventDefault();
+          let fullPath = document.getElementById("api-url").value.replace(/\/$/, "");
+          if (fullPath.length < 1) return;
+          fullPath = fullPath + path;
+          const form = document.getElementById(source);
+          form.action = fullPath;
+          form.submit();
+        };
+      };
+
+      document.getElementById('add-beat').addEventListener("click", addBeat);
+      document.getElementById('add-map').addEventListener("click", addMap);
+      document.getElementById('map-to-train').addEventListener("submit", submitOverride("map-to-train", "/download-maps"));
+      document.getElementById('map-generate').addEventListener("submit", submitOverride("map-generate", "/sagefaker"));
+    </script>
   </body>
 </html>
