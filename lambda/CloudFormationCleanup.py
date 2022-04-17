@@ -4,7 +4,8 @@ import os
 import urllib.request
 
 BUCKETS_TO_CLEAR = {
-    os.environ["BeatSaverDownloadZipsBucketName"]
+    os.environ["BeatSaverDownloadZipsBucketName"],
+    os.environ["BeatsmthFilesStorageBucketName"],
 }
 
 
