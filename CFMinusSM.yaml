@@ -25,6 +25,22 @@ Resources:
   # File bootstrap
   BeatsmthFilesStorage:
     Type: AWS::S3::Bucket
+  BeatsmthFilesStorageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BeatsmthFilesStorage
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - "s3:GetObject"
+            Effect: Allow
+            Resource: !Join
+              - ""
+              - - "arn:aws:s3:::"
+                - !Ref BeatsmthFilesStorage
+                - /*
+            Principal: "*"
   BeatsmthFileBootstrapLambda:
     Type: AWS::Lambda::Function
     Properties:
@@ -117,6 +133,7 @@ Resources:
                       Body=clientFile["data"],
                       Bucket=os.environ["BeatsmthFilesBucketName"],
                       Key=clientFile["fileName"],
+                      ContentType=(clientFile["fileName"].endswith(".html") and "text/html" or "binary/octet-stream"),
                   )
               
               # Respond that it was successful.
