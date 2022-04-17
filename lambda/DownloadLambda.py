@@ -47,6 +47,9 @@ def lambda_handler(event, context):
     if "Records" in event.keys():
         for record in event["Records"]:
             mapIds.append(record["body"])
+    elif "headers" in event.keys() and "content-type" in event["headers"] and event["headers"]["content-type"]:
+        for entry in event["body"].split("&"):
+            mapIds.append(entry.split("=")[1])
     else:
         mapIds = json.loads(event["body"])
 
