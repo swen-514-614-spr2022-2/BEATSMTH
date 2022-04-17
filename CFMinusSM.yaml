@@ -3,16 +3,16 @@ Description: BEATSMTH application
 
 # Parameters
 Parameters:
-  LambdaDeploymentS3Bucket:
-    Description: S3 Bucket that contains a ZIP archive of the Lambda files.
+  Repository:
+    Description: GitHub repository to pull the files from.
     Type: String
-    Default: beatsmth-deploy-files-jake
-    ConstraintDescription: Must be a public S3 bucket. Doesn't have to be your own.
-  LambdaDeploymentS3BucketKey:
-    Description: Key (file) in the S3 bucket that points to the ZIP file containing the Lambda archives.
+    Default: swen-514-614-spr2022-2/BEATSMTH
+    ConstraintDescription: Must be a public GitHub repository.
+  Branch:
+    Description: GitHub branch to pull the files from.
     Type: String
-    Default: Lambdas.zip
-    ConstraintDescription: Must be a public S3 bucket key. Doesn't have to be your own.
+    Default: bootstrap
+    ConstraintDescription: Must be a valid branch name.
 
 Resources:
   # Roles (Requires Freetier)
@@ -21,6 +21,122 @@ Resources:
   #   Properties:
   #     ManagedPolicyArns:
   #       - arn:aws:iam::aws:policy/service-role/AmazonS3ObjectLambdaExecutionRolePolicy
+
+  # File bootstrap
+  BeatsmthFilesStorage:
+    Type: AWS::S3::Bucket
+  BeatsmthFileBootstrapLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Bootstraps the project files.
+      Runtime: python3.9
+      # Role: !Ref LambdaRole # Requires Freetier
+      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
+      Handler: index.lambda_handler
+      Environment:
+        Variables:
+          BeatsmthFilesBucketName: !Ref BeatsmthFilesStorage
+          GitHubRepository: !Ref Repository
+          GitHubBranch: !Ref Branch
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          import os
+          import urllib.request
+          from io import BytesIO
+          from zipfile import ZipFile
+          
+          def sendCloudFormationSuccess(event, context):
+            try:
+                request = urllib.request.Request(event["ResponseURL"], data=json.dumps({
+                    "Status": "SUCCESS",
+                    "PhysicalResourceId": context.log_stream_name,
+                    "StackId": event["StackId"],
+                    "RequestId": event["RequestId"],
+                    "LogicalResourceId": event["LogicalResourceId"],
+                }).encode(), method="PUT")
+                urllib.request.urlopen(request)
+            except Exception:
+                pass
+
+          def lambda_handler(event, context):
+              # Ignore the request if it is from CloudFormation and it isn't a resource create.
+              # This will happen when a resource is being deleted or updated.
+              if "RequestType" in event.keys() and event["RequestType"] != "Create":
+                  sendCloudFormationSuccess(event, context)
+                  return {
+                      "statusCode": 200,
+                      "body": "",
+                  }
+          
+              # Get the download URL.
+              gitHubRepository = os.environ["GitHubRepository"]
+              gitHubBranch = os.environ["GitHubBranch"]
+              zipUrl = "https://github.com/" + gitHubRepository + "/archive/refs/heads/" + gitHubBranch + ".zip"
+
+              # Download the archive.
+              repositoryZipData = urllib.request.urlopen(zipUrl).read()
+              repositoryZipFile = ZipFile(BytesIO(repositoryZipData), "r")
+              lambdaFiles = []
+              clientFiles = []
+              for fileName in repositoryZipFile.namelist():
+                  fileNameParts = fileName.split("/", 2)
+                  if len(fileNameParts) == 3:
+                      fileDirectory = fileNameParts[1]
+                      shortFileName = fileNameParts[2]
+                      if shortFileName != "":
+                          if fileDirectory == "lambda":
+                              lambdaFiles.append({
+                                  "fileName": shortFileName,
+                                  "data": repositoryZipFile.open(fileName).read(),
+                              })
+                          elif fileDirectory == "client":
+                              clientFiles.append({
+                                  "fileName": shortFileName,
+                                  "data": repositoryZipFile.open(fileName).read(),
+                              })
+
+              # Create a ZIP of the Lambda files.
+              lambdaZipFileBuffer = BytesIO()
+              import zipfile
+              lambdaZipFile = ZipFile(lambdaZipFileBuffer, "w", zipfile.ZIP_DEFLATED)
+              for lambdaFile in lambdaFiles:
+                  lambdaZipFile.writestr(lambdaFile["fileName"], lambdaFile["data"])
+              lambdaZipFile.close()
+              clientFiles.append({
+                  "fileName": "Lambdas.zip",
+                  "data": lambdaZipFileBuffer.getvalue(),
+              })
+
+              # Write the client files.
+              s3Client = boto3.client("s3")
+              for clientFile in clientFiles:
+                  s3Client.put_object(
+                      Body=clientFile["data"],
+                      Bucket=os.environ["BeatsmthFilesBucketName"],
+                      Key=clientFile["fileName"],
+                  )
+              
+              # Respond that it was successful.
+              sendCloudFormationSuccess(event, context)
+
+              # Return the empty response.
+              return {
+                  "statusCode": 200,
+                  "body": "",
+              }
+      TracingConfig:
+        Mode: Active
+      Architectures:
+        - arm64
+  BeatsmthFileBootstrap:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: BeatsmthFileBootstrapLambda
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt BeatsmthFileBootstrapLambda.Arn
 
   # Training Data Download
   BeatSaverStorage:
@@ -31,19 +147,20 @@ Resources:
       VisibilityTimeout: 600
   DownloadBeatSaverZipsLambda:
     Type: AWS::Lambda::Function
+    DependsOn: BeatsmthFileBootstrap
     Properties:
       Description: Downloads Beat Saver files to an S3 bucket.
       Runtime: python3.9
       # Role: !Ref LambdaRole # Requires Freetier
-      Role: arn:aws:iam::458166619222:role/LabRole # Requires Lab
+      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
       Handler: DownloadLambda.lambda_handler
       Environment:
         Variables:
           BeatSaverDownloadZipsBucketName: !Ref BeatSaverStorage
       Timeout: 300
       Code:
-        S3Bucket: !Ref LambdaDeploymentS3Bucket
-        S3Key: !Ref LambdaDeploymentS3BucketKey
+        S3Bucket: !Ref BeatsmthFilesStorage
+        S3Key: "Lambdas.zip"
       TracingConfig:
         Mode: Active
       Architectures:
@@ -57,20 +174,22 @@ Resources:
       FunctionName: !GetAtt DownloadBeatSaverZipsLambda.Arn
   DownloadBeatSaverPagesLambda:
     Type: AWS::Lambda::Function
-    DependsOn: BeatSaverMapDownloadQueue
+    DependsOn:
+      - BeatSaverMapDownloadQueue
+      - BeatsmthFileBootstrap
     Properties:
       Description: Requests downloading pages of Beat Saver maps.
       Runtime: python3.9
       # Role: !Ref LambdaRole # Requires Freetier
-      Role: arn:aws:iam::458166619222:role/LabRole # Requires Lab
+      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
       Handler: DownloadPagesLambda.lambda_handler
       Environment:
         Variables:
           BeatSaverMapDownloadQueue: !Ref BeatSaverMapDownloadQueue
       Timeout: 600
       Code:
-        S3Bucket: !Ref LambdaDeploymentS3Bucket
-        S3Key: !Ref LambdaDeploymentS3BucketKey
+        S3Bucket: !Ref BeatsmthFilesStorage
+        S3Key: "Lambdas.zip"
       TracingConfig:
         Mode: Active
       Architectures:
@@ -79,19 +198,20 @@ Resources:
   # SageMaker Substitute Lambda (SageFaker)
   SageFakerLambda:
     Type: AWS::Lambda::Function
+    DependsOn: BeatsmthFileBootstrap
     Properties:
       Description: Generates maps from training data without using ML.
       Runtime: python3.9
       # Role: !Ref LambdaRole # Requires Freetier
-      Role: arn:aws:iam::458166619222:role/LabRole # Requires Lab
+      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
       Handler: SageFakerLambda.lambda_handler
       Environment:
         Variables:
           BeatSaverDownloadZipsBucketName: !Ref BeatSaverStorage
       Timeout: 500
       Code:
-        S3Bucket: !Ref LambdaDeploymentS3Bucket
-        S3Key: !Ref LambdaDeploymentS3BucketKey
+        S3Bucket: !Ref BeatsmthFilesStorage
+        S3Key: "Lambdas.zip"
       TracingConfig:
         Mode: Active
       Architectures:
@@ -188,20 +308,21 @@ Resources:
   # Cleanup
   CloudFormationCleanupLambda:
     Type: AWS::Lambda::Function
-    DependsOn: BeatSaverStorage
+    DependsOn: BeatsmthFileBootstrap
     Properties:
       Description: Cleans up resources for deleting the CloudFormation stack.
       Runtime: python3.9
       # Role: !Ref LambdaRole # Requires Freetier
-      Role: arn:aws:iam::458166619222:role/LabRole # Requires Lab
+      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
       Handler: CloudFormationCleanup.lambda_handler
       Environment:
         Variables:
           BeatSaverDownloadZipsBucketName: !Ref BeatSaverStorage
+          BeatsmthFilesStorageBucketName: !Ref BeatsmthFilesStorage
       Timeout: 300
       Code:
-        S3Bucket: !Ref LambdaDeploymentS3Bucket
-        S3Key: !Ref LambdaDeploymentS3BucketKey
+        S3Bucket: !Ref BeatsmthFilesStorage
+        S3Key: "Lambdas.zip"
       TracingConfig:
         Mode: Active
       Architectures:
