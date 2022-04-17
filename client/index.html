@@ -83,7 +83,8 @@
           <input 
             type="url" 
             class="api-url" 
-            id="api-url" 
+            id="api-url"
+            value="{BEATSMTH_API_GATEWAY_URL}"
             placeholder="Should look similar to the following: https://fafo1l9ywl.execute-api.us-east-1.amazonaws.com/Deployment"
           >
         </div>
@@ -168,6 +169,7 @@
       const submitOverride = (source, path) => {
         return (event) => {
           event.preventDefault();
+          let url = "{BEATSMTH_API_GATEWAY_URL}"
           let fullPath = document.getElementById("api-url").value.replace(/\/$/, "");
           if (fullPath.length < 1) return;
           fullPath = fullPath + path;

@@ -315,6 +315,26 @@ Resources:
       StageName: Deployment
 
   # First Time Setup
+  ReplaceApiGatewayUrlLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: BeatsmthFileBootstrap
+    Properties:
+      Description: Replaces the API Gateway URL in the client HTML file.
+      Runtime: python3.9
+      # Role: !Ref LambdaRole # Requires Freetier
+      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
+      Handler: ReplaceApiGatewayUrl.lambda_handler
+      Environment:
+        Variables:
+          ApiGatewayUrl: !Sub "https://${LambdaApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Deployment/"
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref BeatsmthFilesStorage
+        S3Key: "Lambdas.zip"
+      TracingConfig:
+        Mode: Active
+      Architectures:
+        - arm64
   DownloadInitialPages:
     Type: AWS::CloudFormation::CustomResource
     DependsOn: DownloadBeatSaverPagesLambda
