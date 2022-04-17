@@ -11,7 +11,7 @@ Parameters:
   Branch:
     Description: GitHub branch to pull the files from.
     Type: String
-    Default: bootstrap
+    Default: main
     ConstraintDescription: Must be a valid branch name.
 
 Resources:
