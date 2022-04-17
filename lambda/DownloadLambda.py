@@ -48,7 +48,7 @@ def lambda_handler(event, context):
         for record in event["Records"]:
             mapIds.append(record["body"])
     else:
-        json.loads(event["body"])
+        mapIds = json.loads(event["body"])
 
     if len(mapIds) > MAX_DOWNLOADS_BEFORE_SPLIT:
         # Start the Lambda client.
