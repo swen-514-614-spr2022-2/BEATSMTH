@@ -169,7 +169,6 @@
       const submitOverride = (source, path) => {
         return (event) => {
           event.preventDefault();
-          let url = "{BEATSMTH_API_GATEWAY_URL}"
           let fullPath = document.getElementById("api-url").value.replace(/\/$/, "");
           if (fullPath.length < 1) return;
           fullPath = fullPath + path;

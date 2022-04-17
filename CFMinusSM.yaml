@@ -327,6 +327,7 @@ Resources:
       Environment:
         Variables:
           ApiGatewayUrl: !Sub "https://${LambdaApiGateway}.execute-api.${AWS::Region}.amazonaws.com/Deployment/"
+          BeatsmthFilesStorageBucketName: !Ref BeatsmthFilesStorage
       Timeout: 300
       Code:
         S3Bucket: !Ref BeatsmthFilesStorage
@@ -341,6 +342,12 @@ Resources:
     Version: "1.0"
     Properties:
       ServiceToken: !GetAtt DownloadBeatSaverPagesLambda.Arn
+  ReplaceApiGatewayUrl:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: ReplaceApiGatewayUrlLambda
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt ReplaceApiGatewayUrlLambda.Arn
 
   # Cleanup
   CloudFormationCleanupLambda:
