@@ -377,3 +377,9 @@ Resources:
     Version: "1.0"
     Properties:
       ServiceToken: !GetAtt CloudFormationCleanupLambda.Arn
+
+# Outputs
+Outputs:
+  Website:
+    Description: BEATSMTH website that can be viewed.
+    Value: !Sub "https://${BeatsmthFilesStorage}.s3.amazonaws.com/index.html"
