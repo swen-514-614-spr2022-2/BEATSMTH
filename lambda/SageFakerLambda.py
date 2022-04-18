@@ -45,7 +45,7 @@ def random_fillings(body):
   return map
   
 def clean_event(event):
-  body_list = json.dumps(event["body"]).split("&")
+  body_list = json.dumps(event["body"]).strip('"').split("&")
   ret = {
     "body": [],
     "email": ""
