@@ -19,6 +19,10 @@ Parameters:
     Default: 25
     MinValue: 0
     ConstraintDescription: Must be a valid positive integer.
+  TopicName:
+    Type: String
+    Description:  Topic Name
+    Default: my-topic
 
 Resources:
   # Roles (Requires Freetier)
@@ -53,7 +57,7 @@ Resources:
       Description: Bootstraps the project files.
       Runtime: python3.9
       # Role: !Ref LambdaRole # Requires Freetier
-      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
+      Role: arn:aws:iam::409588508710:role/LabRole # Requires Lab
       Handler: index.lambda_handler
       Environment:
         Variables:
@@ -175,7 +179,7 @@ Resources:
       Description: Downloads Beat Saver files to an S3 bucket.
       Runtime: python3.9
       # Role: !Ref LambdaRole # Requires Freetier
-      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
+      Role: arn:aws:iam::409588508710:role/LabRole # Requires Lab
       Handler: DownloadLambda.lambda_handler
       Environment:
         Variables:
@@ -204,7 +208,7 @@ Resources:
       Description: Requests downloading pages of Beat Saver maps.
       Runtime: python3.9
       # Role: !Ref LambdaRole # Requires Freetier
-      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
+      Role: arn:aws:iam::409588508710:role/LabRole # Requires Lab
       Handler: DownloadPagesLambda.lambda_handler
       Environment:
         Variables:
@@ -227,7 +231,7 @@ Resources:
       Description: Generates maps from training data without using ML.
       Runtime: python3.9
       # Role: !Ref LambdaRole # Requires Freetier
-      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
+      Role: arn:aws:iam::409588508710:role/LabRole # Requires Lab
       Handler: SageFakerLambda.lambda_handler
       Environment:
         Variables:
@@ -320,6 +324,14 @@ Resources:
     Properties:
       RestApiId: !Ref LambdaApiGateway
       StageName: Deployment
+      
+  MySNSTopic: 
+    Type: AWS::SNS::Topic
+    Properties: 
+     Subscription: 
+       - Endpoint: !Sub "https://${BeatsmthFilesStorage}.s3.amazonaws.com/"
+         Protocol: "https"
+     TopicName: !Ref TopicName
 
   # First Time Setup
   ReplaceApiGatewayUrlLambda:
@@ -329,7 +341,7 @@ Resources:
       Description: Replaces the API Gateway URL in the client HTML file.
       Runtime: python3.9
       # Role: !Ref LambdaRole # Requires Freetier
-      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
+      Role: arn:aws:iam::409588508710:role/LabRole # Requires Lab
       Handler: ReplaceApiGatewayUrl.lambda_handler
       Environment:
         Variables:
@@ -364,7 +376,7 @@ Resources:
       Description: Cleans up resources for deleting the CloudFormation stack.
       Runtime: python3.9
       # Role: !Ref LambdaRole # Requires Freetier
-      Role: arn:aws:iam::446855603107:role/LabRole # Requires Lab
+      Role: arn:aws:iam::409588508710:role/LabRole # Requires Lab
       Handler: CloudFormationCleanup.lambda_handler
       Environment:
         Variables:
