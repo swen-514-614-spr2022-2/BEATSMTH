@@ -19,10 +19,6 @@ Parameters:
     Default: 25
     MinValue: 0
     ConstraintDescription: Must be a valid positive integer.
-  TopicName:
-    Type: String
-    Description:  Topic Name
-    Default: my-topic
 
 Resources:
   # Roles (Requires Freetier)
@@ -235,7 +231,7 @@ Resources:
       Handler: SageFakerLambda.lambda_handler
       Environment:
         Variables:
-          NotificationSystem: !Ref MySNSTopic
+          NotificationSystem: !Ref BeatsmthMapCompleteTopic
           BeatSaverDownloadZipsBucketName: !Ref BeatSaverStorage
       Timeout: 500
       Code:
@@ -326,13 +322,13 @@ Resources:
       RestApiId: !Ref LambdaApiGateway
       StageName: Deployment
       
-  MySNSTopic: 
+  BeatsmthMapCompleteTopic:
     Type: AWS::SNS::Topic
     Properties: 
      Subscription: 
        - Endpoint: !Sub "https://${BeatsmthFilesStorage}.s3.amazonaws.com/"
          Protocol: "https"
-     TopicName: !Ref TopicName
+     TopicName: BeatsmthMapCompleteTopic
 
   # First Time Setup
   ReplaceApiGatewayUrlLambda:
