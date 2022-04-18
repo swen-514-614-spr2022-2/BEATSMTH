@@ -7,7 +7,7 @@ import re
 S3_CLIENT = boto3.client("s3")
 SNS_CLIENT = boto3.client("sns")
 TRAINING_BUCKET_NAME = os.environ["BeatSaverDownloadZipsBucketName"]
-SNS_ARN = os.environ["NotificationSystem]
+SNS_ARN = os.environ["NotificationSystem"]
 MAP_TRAINING_COUNT = 3
 
 
