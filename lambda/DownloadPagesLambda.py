@@ -5,7 +5,6 @@ import ssl
 import urllib.request
 import uuid
 
-PAGES_TO_DOWNLOAD = 25
 MAX_ENTRIES_FOR_BATCH = 10
 
 
@@ -46,7 +45,7 @@ def lambda_handler(event, context):
 
     # Get the map ids to download.
     mapIds = []
-    for i in range(0, PAGES_TO_DOWNLOAD):
+    for i in range(0, int(os.environ["InitialDownloadPages"])):
         try:
             pageMaps = json.loads(urllib.request.urlopen("https://beatsaver.com/api/search/text/" + str(i) + "?sortOrder=Rating", context=sslContext).read().decode("utf8"))
             for mapData in pageMaps["docs"]:

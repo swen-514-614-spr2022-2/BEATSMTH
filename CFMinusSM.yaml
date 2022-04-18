@@ -13,6 +13,12 @@ Parameters:
     Type: String
     Default: main
     ConstraintDescription: Must be a valid branch name.
+  InitialDownloadPages:
+    Description: The total number of pages to download for the initial training data.
+    Type: Number
+    Default: 25
+    MinValue: 0
+    ConstraintDescription: Must be a valid positive integer.
 
 Resources:
   # Roles (Requires Freetier)
@@ -203,6 +209,7 @@ Resources:
       Environment:
         Variables:
           BeatSaverMapDownloadQueue: !Ref BeatSaverMapDownloadQueue
+          InitialDownloadPages: !Ref InitialDownloadPages
       Timeout: 600
       Code:
         S3Bucket: !Ref BeatsmthFilesStorage
