@@ -80,8 +80,8 @@ def lambda_handler(event, context):
     Endpoint=email)
   publish_response = SNS_CLIENT.publish(
     TopicArn=SNS_ARN,
-    Message="This is a test message",
-    Subject="Test Notification")
+    Message="A map has been generated using BEATSMTH!",
+    Subject="A map was generated!")
   return {
     'statusCode': 200,
     'body': json.dumps(body)
