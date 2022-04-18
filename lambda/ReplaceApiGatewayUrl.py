@@ -3,12 +3,6 @@ import json
 import os
 import urllib.request
 
-BUCKETS_TO_CLEAR = {
-    os.environ["BeatSaverDownloadZipsBucketName"],
-    os.environ["BeatsmthFilesStorageBucketName"],
-}
-
-
 def sendCloudFormationSuccess(event, context):
     """Sends a response to CloudFormation that the given operation completed.
     """
@@ -25,30 +19,41 @@ def sendCloudFormationSuccess(event, context):
     except Exception:
         pass
 
+
 def lambda_handler(event, context):
     """Handles the Lambda request.
     """
 
-    # Ignore the request if it is from CloudFormation and it isn't a resource delete.
-    # This will happen when a resource is being created or updated.
-    if "RequestType" in event.keys() and event["RequestType"] != "Delete":
+    # Ignore the request if it is from CloudFormation and it isn't a resource create.
+    # This will happen when a resource is being deleted or updated.
+    if "RequestType" in event.keys() and event["RequestType"] != "Create":
         sendCloudFormationSuccess(event, context)
         return {
             "statusCode": 200,
             "body": "",
         }
 
-    # Clear the S3 buckets.
-    s3 = boto3.resource("s3")
-    for bucketName in BUCKETS_TO_CLEAR:
-        bucket = s3.Bucket(bucketName)
-        bucket.objects.all().delete()
+    # Read the index.html page file.
+    s3Client = boto3.client("s3")
+    indexHtmlFile = s3Client.get_object(
+        Bucket=os.environ["BeatsmthFilesStorageBucketName"],
+        Key="index.html",
+    )["Body"].read().decode("UTF8")
+
+    # Replace the URL and replace the file.
+    indexHtmlFile = indexHtmlFile.replace("{BEATSMTH_API_GATEWAY_URL}", os.environ["ApiGatewayUrl"])
+    s3Client.put_object(
+        Body=indexHtmlFile.encode(),
+        Bucket=os.environ["BeatsmthFilesStorageBucketName"],
+        Key="index.html",
+        ContentType="text/html",
+    )
 
     # Respond to CloudFormation that the event completed.
     if "ResponseURL" in event.keys():
         sendCloudFormationSuccess(event, context)
 
-    # Return the response.
+    # Return an empty response.
     return {
         "statusCode": 200,
         "body": "",
