@@ -2,6 +2,7 @@ import json
 import random
 import boto3
 import os
+import re
 
 S3_CLIENT = boto3.client("s3")
 TRAINING_BUCKET_NAME = os.environ["BeatSaverDownloadZipsBucketName"]
@@ -28,22 +29,47 @@ def train():
 def random_fillings(body):
   map = []
   for note in body:
-    randNote = {
+    rand_note = {
       "_time": random.randint(1, 60),
       "_type": random.randint(0, 5),
       "_lineLayer": random.randint(0, 2),
       "_lineIndex": random.randint(0, 3),
       "_cutDirection": random.randint(0, 8)
     }
-    randNote.update(note)
-    map.append(randNote)
+    rand_note.update(note)
+    map.append(rand_note)
   sorted(map, key=lambda i: i["_time"])
   return map
+  
+def clean_event(event):
+  body_list = json.dumps(event["body"]).split("&")
+  ret = {
+    "body": [],
+    "email": ""
+  }
+  for el in body_list:
+    pair = el.split("=")
+    if (pair[0] == "email"):
+      if (not(len(pair) < 2 or pair[1] == '')):
+        ret["email"] = pair[1]
+    else:
+      index = 0
+      if(len(re.findall('\d+', pair[0])) > 0):
+        index = int(re.findall('\d+', pair[0])[0])
+      while(len(ret["body"]) <= index):
+        ret["body"].append({})
+      if(not(len(pair) < 2 or pair[1] == '')):
+        new_key = re.findall('([a-zA-Z_]*)\d*.*', pair[0])[0]
+        ret["body"][index][new_key] = int(pair[1])
+  return ret
 
 
 def lambda_handler(event, context):
   # train() # Pulls in a number of maps to train with, currently not being utilized
+  new_event = clean_event(event)
+  body = random_fillings(new_event["body"])
+  # use body["email"] with SNS
   return {
     'statusCode': 200,
-    'body': json.dumps(random_fillings(json.loads(event["body"])))
+    'body': json.dumps(body)
   }
