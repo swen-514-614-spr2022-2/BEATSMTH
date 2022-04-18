@@ -5,7 +5,9 @@ import os
 import re
 
 S3_CLIENT = boto3.client("s3")
+SNS_CLIENT = boto3.client("sns")
 TRAINING_BUCKET_NAME = os.environ["BeatSaverDownloadZipsBucketName"]
+SNS_ARN = os.environ["NotificationSystem]
 MAP_TRAINING_COUNT = 3
 
 
@@ -69,6 +71,14 @@ def lambda_handler(event, context):
   new_event = clean_event(event)
   body = random_fillings(new_event["body"])
   # use body["email"] with SNS
+  subscribe_response = SNS_CLIENT.subscribe(
+    TopicArn=SNS_ARN,
+    Protocol='email',
+    Endpoint=new_event["email"])
+  publish_response = SNS_CLIENT.publish(
+    TopicArn=SNS_ARN,
+    Message="This is a test message",
+    Subject="Test Notification")
   return {
     'statusCode': 200,
     'body': json.dumps(body)
