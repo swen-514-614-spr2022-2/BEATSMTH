@@ -3,6 +3,7 @@ import random
 import boto3
 import os
 import re
+from urllib.parse import unquote
 
 S3_CLIENT = boto3.client("s3")
 SNS_CLIENT = boto3.client("sns")
@@ -69,12 +70,14 @@ def clean_event(event):
 def lambda_handler(event, context):
   # train() # Pulls in a number of maps to train with, currently not being utilized
   new_event = clean_event(event)
+  email = unquote(new_event["email"]).strip('"')
+  print(email)
   body = random_fillings(new_event["body"])
   # use body["email"] with SNS
   subscribe_response = SNS_CLIENT.subscribe(
     TopicArn=SNS_ARN,
     Protocol='email',
-    Endpoint=new_event["email"])
+    Endpoint=email)
   publish_response = SNS_CLIENT.publish(
     TopicArn=SNS_ARN,
     Message="This is a test message",
