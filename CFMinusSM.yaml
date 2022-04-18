@@ -235,6 +235,7 @@ Resources:
       Handler: SageFakerLambda.lambda_handler
       Environment:
         Variables:
+          NotificationSystem: !GetAtt MySNSTopic.Arn
           BeatSaverDownloadZipsBucketName: !Ref BeatSaverStorage
       Timeout: 500
       Code:
